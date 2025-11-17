@@ -1,0 +1,353 @@
+%% 矩形薄膜自由振动模态分析 - 前20阶模态
+clear; close all; clc;
+
+fprintf('=== 矩形薄膜自由振动模态分析 ===\n');
+fprintf('计算并显示前20阶振动模态\n\n');
+
+%% 参数设置
+a = 1.0;        % x方向长度(m)
+b = 1.0;        % y方向长度(m)
+T = 1000;       % 张力(N/m)
+rho = 1.0;      % 面密度(kg/m²)
+c = sqrt(T/rho); % 波速(m/s)
+
+% 网格参数
+Nx = 80;        % x方向网格点数
+Ny = 80;        % y方向网格点数
+
+fprintf('薄膜参数:\n');
+fprintf('  尺寸: %.1f x %.1f m\n', a, b);
+fprintf('  张力: %.0f N/m\n', T);
+fprintf('  面密度: %.1f kg/m²\n', rho);
+fprintf('  波速: %.1f m/s\n', c);
+
+%% 创建计算网格
+x = linspace(0, a, Nx);
+y = linspace(0, b, Ny);
+[X, Y] = meshgrid(x, y);
+
+%% 计算前20阶模态
+fprintf('\n计算前20阶振动模态...\n');
+
+% 生成可能的模态阶数组合
+max_order = 10;  % 最大单方向阶数
+modes_list = [];
+for m = 1:max_order
+    for n = 1:max_order
+        modes_list = [modes_list; m, n];
+    end
+end
+
+% 计算所有组合的频率并排序
+num_modes = min(20, size(modes_list, 1));
+frequencies = zeros(size(modes_list, 1), 1);
+mode_shapes = cell(size(modes_list, 1), 1);
+
+fprintf('计算模态形状和频率...\n');
+for i = 1:size(modes_list, 1)
+    m = modes_list(i, 1);
+    n = modes_list(i, 2);
+    
+    % 计算固有频率 (Hz)
+    frequencies(i) = (c/(2)) * sqrt((m/a)^2 + (n/b)^2);
+    
+    % 计算模态形状
+    mode_shapes{i} = sin(m*pi*X/a) .* sin(n*pi*Y/b);
+end
+
+% 按频率排序
+[freq_sorted, sort_idx] = sort(frequencies);
+modes_sorted = modes_list(sort_idx, :);
+shapes_sorted = mode_shapes(sort_idx);
+
+% 取前20阶
+freq_sorted = freq_sorted(1:num_modes);
+modes_sorted = modes_sorted(1:num_modes, :);
+shapes_sorted = shapes_sorted(1:num_modes);
+
+%% 显示模态信息表格
+fprintf('\n前20阶振动模态信息:\n');
+fprintf('阶数\t模态(m,n)\t频率(Hz)\t波长比\n');
+fprintf('----\t----------\t--------\t------\n');
+for i = 1:num_modes
+    m = modes_sorted(i, 1);
+    n = modes_sorted(i, 2);
+    wavelength_ratio = 2 / sqrt((m/a)^2 + (n/b)^2);
+    fprintf('%2d\t  (%d,%d)\t%8.2f\t%8.2f\n', i, m, n, freq_sorted(i), wavelength_ratio);
+end
+
+%% 1. 详细模态形状可视化 (3D图)
+fprintf('\n生成3D模态形状图...\n');
+figure('Position', [50, 50, 1400, 900], 'Name', '矩形薄膜振动模态 - 3D视图');
+
+% 每行显示4个模态
+rows = 5;
+cols = 4;
+
+for i = 1:num_modes
+    subplot(rows, cols, i);
+    
+    m = modes_sorted(i, 1);
+    n = modes_sorted(i, 2);
+    Z = shapes_sorted{i};
+    
+    % 绘制3D表面图
+    surf(X, Y, Z, 'EdgeColor', 'none');
+    
+    % 设置标题和标签
+    title(sprintf('模态 %d: (%d,%d)\n%.1f Hz', i, m, n, freq_sorted(i)), ...
+          'FontSize', 9, 'FontWeight', 'normal');
+    xlabel('x (m)'); ylabel('y (m)'); zlabel('振幅');
+    
+    % 设置坐标轴属性
+    axis equal;
+    axis tight;
+    zlim([-1, 1]);
+    
+    % 设置颜色映射
+    colormap(jet);
+    
+    % 添加网格
+    grid on;
+    view(45, 30);  % 设置视角
+end
+
+sgtitle('矩形薄膜前20阶自由振动模态 (3D视图)', 'FontSize', 14, 'FontWeight', 'bold');
+
+%% 2. 模态形状等高线图
+fprintf('生成模态等高线图...\n');
+figure('Position', [100, 100, 1400, 900], 'Name', '矩形薄膜振动模态 - 等高线视图');
+
+for i = 1:num_modes
+    subplot(rows, cols, i);
+    
+    m = modes_sorted(i, 1);
+    n = modes_sorted(i, 2);
+    Z = shapes_sorted{i};
+    
+    % 绘制等高线图
+    contourf(X, Y, Z, 15, 'LineColor', 'none');
+    
+    % 设置标题
+    title(sprintf('模态 %d: (%d,%d)\n%.1f Hz', i, m, n, freq_sorted(i)), ...
+          'FontSize', 9, 'FontWeight', 'normal');
+    xlabel('x (m)'); ylabel('y (m)');
+    
+    % 设置坐标轴
+    axis equal;
+    axis tight;
+    
+    % 设置颜色映射
+    colormap(jet);
+    colorbar;
+end
+
+sgtitle('矩形薄膜前20阶自由振动模态 (等高线视图)', 'FontSize', 14, 'FontWeight', 'bold');
+
+%% 3. 模态动画显示
+fprintf('生成模态振动动画...\n');
+
+% 选择几个典型模态进行动画演示
+animate_modes = [1, 2, 3, 4, 9, 16];  % 选择几个有代表性的模态
+
+figure('Position', [150, 150, 1200, 600], 'Name', '典型模态振动动画');
+
+for idx = 1:length(animate_modes)
+    i = animate_modes(idx);
+    
+    if i > num_modes
+        continue;
+    end
+    
+    m = modes_sorted(i, 1);
+    n = modes_sorted(i, 2);
+    Z_base = shapes_sorted{i};
+    
+    subplot(2, 3, idx);
+    
+    % 创建时间序列 (一个周期)
+    t = linspace(0, 2*pi, 20);
+    
+    % 绘制初始状态
+    h_surf = surf(X, Y, Z_base * cos(t(1)), 'EdgeColor', 'none');
+    title(sprintf('模态 %d: (%d,%d)\n%.1f Hz', i, m, n, freq_sorted(i)));
+    xlabel('x (m)'); ylabel('y (m)'); zlabel('振幅');
+    axis equal;
+    zlim([-1, 1]);
+    colormap(jet);
+    
+    % 简单动画演示
+    for k = 1:length(t)
+        set(h_surf, 'ZData', Z_base * cos(t(k)));
+        drawnow;
+        pause(0.05);
+    end
+end
+
+sgtitle('典型模态振动动画演示', 'FontSize', 14, 'FontWeight', 'bold');
+
+%% 4. 频率分布图
+fprintf('生成频率分布图...\n');
+figure('Position', [200, 200, 1000, 600]);
+
+% 频率柱状图
+subplot(2, 2, 1);
+bar(freq_sorted, 'FaceColor', [0.2, 0.6, 0.8], 'EdgeColor', 'k');
+xlabel('模态阶数'); ylabel('频率 (Hz)');
+title('前20阶模态频率分布');
+grid on;
+
+% 添加频率值标签
+for i = 1:num_modes
+    text(i, freq_sorted(i)+0.1, sprintf('%.1f', freq_sorted(i)), ...
+         'HorizontalAlignment', 'center', 'FontSize', 8);
+end
+
+% 模态阶数(m,n)分布
+subplot(2, 2, 2);
+scatter(modes_sorted(:,1), modes_sorted(:,2), 80, freq_sorted, 'filled');
+xlabel('m 阶数'); ylabel('n 阶数');
+title('模态阶数分布 (颜色表示频率)');
+colorbar;
+grid on;
+
+% 添加模态编号标签
+for i = 1:num_modes
+    text(modes_sorted(i,1), modes_sorted(i,2), num2str(i), ...
+         'HorizontalAlignment', 'center', 'FontSize', 8, 'Color', 'white');
+end
+
+% 频率与模态序号的关系 (对数坐标)
+subplot(2, 2, 3);
+semilogy(1:num_modes, freq_sorted, 'o-', 'LineWidth', 2, 'MarkerSize', 6);
+xlabel('模态阶数'); ylabel('频率 (Hz, 对数坐标)');
+title('频率随模态阶数的变化');
+grid on;
+
+% 频率平方与(m^2 + n^2)的关系
+subplot(2, 2, 4);
+m2_plus_n2 = modes_sorted(:,1).^2 + modes_sorted(:,2).^2;
+freq_squared = freq_sorted.^2;
+scatter(m2_plus_n2, freq_squared, 50, 1:num_modes, 'filled');
+xlabel('m^2 + n^2'); ylabel('频率平方 (Hz^2)');
+title('频率平方与(m^2+n^2)的关系');
+colorbar;
+grid on;
+
+% 添加趋势线
+hold on;
+p = polyfit(m2_plus_n2, freq_squared, 1);
+x_fit = linspace(0, max(m2_plus_n2), 100);
+y_fit = polyval(p, x_fit);
+plot(x_fit, y_fit, 'r--', 'LineWidth', 1);
+legend('数据点', sprintf('拟合直线: y = %.3f x', p(1)), 'Location', 'northwest');
+
+sgtitle('模态频率特性分析', 'FontSize', 14, 'FontWeight', 'bold');
+
+%% 5. 节线模式可视化
+fprintf('生成节线模式图...\n');
+figure('Position', [250, 250, 1200, 800], 'Name', '模态节线分析');
+
+% 选择几个有代表性的模态显示节线
+selected_modes = [1, 2, 3, 6, 8, 12, 15, 20];
+
+for idx = 1:min(8, length(selected_modes))
+    i = selected_modes(idx);
+    if i > num_modes
+        continue;
+    end
+    
+    subplot(2, 4, idx);
+    
+    m = modes_sorted(i, 1);
+    n = modes_sorted(i, 2);
+    Z = shapes_sorted{i};
+    
+    % 绘制模态形状
+    contourf(X, Y, Z, 20, 'LineColor', 'none');
+    hold on;
+    
+    % 绘制节线 (零等高线)
+    contour(X, Y, Z, [0, 0], 'k-', 'LineWidth', 2);
+    
+    % 设置标题和标签
+    title(sprintf('模态 %d: (%d,%d)\n节线数: %d', i, m, n, (m-1)+(n-1)));
+    xlabel('x (m)'); ylabel('y (m)');
+    
+    axis equal;
+    axis tight;
+    colormap(jet);
+    
+    % 添加网格
+    grid on;
+end
+
+sgtitle('典型模态的节线分布 (黑色线条为节线)', 'FontSize', 14, 'FontWeight', 'bold');
+
+%% 6. 模态比较 - 相同总阶数的模态
+fprintf('生成模态分组比较图...\n');
+
+% 按总阶数(m+n)分组
+total_orders = modes_sorted(:,1) + modes_sorted(:,2);
+unique_orders = unique(total_orders);
+max_group_size = 4;  % 每组最多显示4个模态
+
+figure('Position', [300, 300, 1200, 800], 'Name', '按总阶数分组的模态比较');
+
+plot_count = 1;
+for order = unique_orders(1:min(5, length(unique_orders)))'  % 显示前5组
+    group_indices = find(total_orders == order);
+    num_in_group = length(group_indices);
+    
+    for j = 1:min(max_group_size, num_in_group)
+        i = group_indices(j);
+        
+        subplot(length(unique_orders(1:min(5, length(unique_orders)))), max_group_size, plot_count);
+        
+        m = modes_sorted(i, 1);
+        n = modes_sorted(i, 2);
+        Z = shapes_sorted{i};
+        
+        % 绘制模态
+        imagesc(x, y, Z);
+        title(sprintf('(%d,%d) m+n=%d\n%.1f Hz', m, n, m+n, freq_sorted(i)));
+        xlabel('x (m)'); ylabel('y (m)');
+        axis equal;
+        axis tight;
+        colormap(jet);
+        colorbar;
+        
+        plot_count = plot_count + 1;
+    end
+    
+    % 如果该组模态数量不足，填充空白
+    for j = (num_in_group+1):max_group_size
+        subplot(length(unique_orders(1:min(5, length(unique_orders)))), max_group_size, plot_count);
+        axis off;
+        plot_count = plot_count + 1;
+    end
+end
+
+sgtitle('按总阶数(m+n)分组的模态比较', 'FontSize', 14, 'FontWeight', 'bold');
+
+%% 输出总结
+fprintf('\n=== 分析完成 ===\n');
+fprintf('共计算并显示了 %d 个振动模态\n', num_modes);
+fprintf('频率范围: %.2f Hz - %.2f Hz\n', min(freq_sorted), max(freq_sorted));
+fprintf('基频 (模态1): %.2f Hz\n', freq_sorted(1));
+
+% 计算频率间隔统计
+freq_intervals = diff(freq_sorted);
+fprintf('平均频率间隔: %.2f Hz\n', mean(freq_intervals));
+fprintf('最小频率间隔: %.2f Hz\n', min(freq_intervals));
+fprintf('最大频率间隔: %.2f Hz\n', max(freq_intervals));
+
+fprintf('\n生成的图形:\n');
+fprintf('  1. 前20阶模态3D形状图\n');
+fprintf('  2. 前20阶模态等高线图\n');
+fprintf('  3. 典型模态振动动画\n');
+fprintf('  4. 频率特性分析图\n');
+fprintf('  5. 节线模式分析图\n');
+fprintf('  6. 模态分组比较图\n');
+
+fprintf('\n所有图形已生成完成！\n');
